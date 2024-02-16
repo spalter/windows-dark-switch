@@ -1,10 +1,9 @@
 [package]
 name = "windows-dark-switch"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
 native-windows-gui = "1.0.12"
 native-windows-derive = "*"
-powershell_script = "1.1.0"
 winreg = "0.7"

@@ -7,11 +7,14 @@ extern crate native_windows_gui as nwg;
 
 use nwd::NwgUi;
 use nwg::NativeUi;
-use powershell_script::PsScriptBuilder;
+use std::io;
 use winreg::RegKey;
 
 const DARK_ICON_DATA: &[u8] = include_bytes!("../assets/dark.ico");
 const LIGHT_ICON_DATA: &[u8] = include_bytes!("../assets/light.ico");
+const HKCU_SUB_KEY: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";
+const APP_NAME_KEY: &str = "AppsUseLightTheme";
+const SYSTEM_NAME_KEY: &str = "SystemUsesLightTheme";
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum ThemeMode {
@@ -23,14 +26,12 @@ pub enum ThemeMode {
 impl ThemeMode {
     /// Detect the current theme mode
     fn detect_mode() -> ThemeMode {
-        let key = "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";
-        let value = "AppsUseLightTheme";
         let reg_key = RegKey::predef(winreg::enums::HKEY_CURRENT_USER);
 
         // Open the registry key and get the value
-        if let Ok(sub_key) = reg_key.open_subkey(key) {
+        if let Ok(sub_key) = reg_key.open_subkey(HKCU_SUB_KEY) {
             // Get the value of the registry key
-            if let Ok(dword) = sub_key.get_value::<u32, _>(value) {
+            if let Ok(dword) = sub_key.get_value::<u32, _>(APP_NAME_KEY) {
                 // Return the theme mode
                 return if dword == 0 {
                     ThemeMode::Dark
@@ -42,6 +43,16 @@ impl ThemeMode {
 
         // Return the default theme mode
         ThemeMode::Light
+    }
+
+    /// Set the theme mode
+    fn set_theme(mode: u32) -> io::Result<()> {
+        let hkcu = RegKey::predef(winreg::enums::HKEY_CURRENT_USER);
+        let (key, _disp) = hkcu.create_subkey(HKCU_SUB_KEY)?;
+        key.set_value(APP_NAME_KEY, &mode)?;
+        key.set_value(SYSTEM_NAME_KEY, &mode)?;
+
+        Ok(())
     }
 }
 
@@ -80,36 +91,16 @@ impl SystemTray {
         let mode = ThemeMode::detect_mode();
 
         match mode {
-            ThemeMode::Dark => self.switch_to_light(),
-            ThemeMode::Light => self.switch_to_dark(),
+            ThemeMode::Dark => {
+                let _ = ThemeMode::set_theme(1);
+            }
+            ThemeMode::Light => {
+                let _ = ThemeMode::set_theme(0);
+            }
             _ => {}
         }
 
         self.update_tray_icon();
-    }
-
-    // Switch to dark mode
-    fn switch_to_dark(&self) {
-        let ps = PsScriptBuilder::new()
-            .no_profile(true)
-            .non_interactive(true)
-            .hidden(false)
-            .print_commands(false)
-            .build();
-
-        let _output = ps.run(r#"New-ItemProperty -Path HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize -Name SystemUsesLightTheme -Value 0 -Type Dword -Force; New-ItemProperty -Path HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize -Name AppsUseLightTheme -Value 0 -Type Dword -Force"#).unwrap();
-    }
-
-    // Switch to light mode
-    fn switch_to_light(&self) {
-        let ps = PsScriptBuilder::new()
-            .no_profile(true)
-            .non_interactive(true)
-            .hidden(false)
-            .print_commands(false)
-            .build();
-
-        let _output = ps.run(r#"New-ItemProperty -Path HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize -Name SystemUsesLightTheme -Value 1 -Type Dword -Force; New-ItemProperty -Path HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize -Name AppsUseLightTheme -Value 1 -Type Dword -Force"#).unwrap();
     }
 
     // Function to switch the tray icon based on the ThemeMode
@@ -119,6 +110,7 @@ impl SystemTray {
         nwg::TrayNotification::set_icon(&self.tray, &icon);
     }
 
+    // Load the tray icon based on the ThemeMode
     fn load_icon(&self) -> nwg::Icon {
         let mode = ThemeMode::detect_mode();
         match mode {
