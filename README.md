@@ -10,6 +10,15 @@ I could not find a simple and easy version anywhere that worked for me. So here 
 
 Click on the dark-switch icon in the system tray to switch between light and dark color themes.
 
+## Configuration
+
+dark-switch also supports theme files.
+
+1. Create a shortcut to the executable
+2. Modify the short cut with the path to the light and dark theme file as arguments.
+
+The switch will then just load the theme files instead of the registry changes.
+
 ## Contribution
 
 Thank you for considering contributing to the dark-switch project! We welcome any contributions that can help improve the project and make it better for everyone.

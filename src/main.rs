@@ -7,7 +7,7 @@ extern crate native_windows_gui as nwg;
 
 use nwd::NwgUi;
 use nwg::NativeUi;
-use std::io;
+use std::{env, io, process::Command};
 use winreg::RegKey;
 
 const DARK_ICON_DATA: &[u8] = include_bytes!("../assets/dark.ico");
@@ -54,6 +54,33 @@ impl ThemeMode {
 
         Ok(())
     }
+
+    /// Load a theme file from the arguments list.
+    fn load_themes(mode: ThemeMode) -> String {
+        let args: Vec<_> = env::args().collect();
+        if args.len() > 2 {
+            match mode {
+                ThemeMode::Light => {
+                    return args[2].clone();
+                }
+                ThemeMode::Dark => {
+                    return args[1].clone();
+                }
+                _ => (),
+            }
+        }
+
+        String::new()
+    }
+
+    /// Set the theme based on a file.
+    fn set_theme_file(theme: String) {
+        println!("Load file: {}", theme);
+        Command::new("cmd")
+            .args(["/C", "start", &theme])
+            .output()
+            .expect("failed to load the windows theme file.");
+    }
 }
 
 // The system tray UI
@@ -89,15 +116,20 @@ impl SystemTray {
     // Switch the theme mode
     fn switch_mode(&self) {
         let mode = ThemeMode::detect_mode();
+        let theme = ThemeMode::load_themes(mode);
 
-        match mode {
-            ThemeMode::Dark => {
-                let _ = ThemeMode::set_theme(1);
+        if theme == "" {
+            match mode {
+                ThemeMode::Dark => {
+                    let _ = ThemeMode::set_theme(1);
+                }
+                ThemeMode::Light => {
+                    let _ = ThemeMode::set_theme(0);
+                }
+                _ => {}
             }
-            ThemeMode::Light => {
-                let _ = ThemeMode::set_theme(0);
-            }
-            _ => {}
+        } else {
+            ThemeMode::set_theme_file(theme);
         }
 
         self.update_tray_icon();
