@@ -105,6 +105,7 @@ impl SystemTray {
     // Show the system tray menu
     fn show_menu(&self) {
         let (x, y) = nwg::GlobalCursor::position();
+        self.update_tray_icon();
         self.tray_menu.popup(x, y);
     }
 
